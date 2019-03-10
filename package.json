@@ -1,0 +1,23 @@
+{
+  "name": "schemify",
+  "version": "1.0.0",
+  "description": "A CLI tool to convert React Native components (that uses TypeScript) into a new Fabric schema",
+  "main": "index.js",
+  "dependencies": {
+    "@types/node": "^11.11.0",
+    "@types/react": "^16.8.7",
+    "react": "^16.8.4",
+    "typescript": "^3.3.3333"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsc index.ts && node index.js"
+  },
+  "keywords": [
+    "react",
+    "native"
+  ],
+  "author": "Alexey Kureev <a.g.kureev@gmail.com>",
+  "license": "MIT"
+}

@@ -1,0 +1,10 @@
+"use strict";
+exports.__esModule = true;
+var ts = require("typescript");
+var fs = require("fs");
+var transformer_1 = require("./transformer");
+var FILE_NAME = './sandbox/SomeComponent.tsx';
+var printer = ts.createPrinter();
+var content = fs.readFileSync(FILE_NAME).toString('utf8');
+var sourceFile = ts.createSourceFile(FILE_NAME, content, ts.ScriptTarget.ES2016, true, ts.ScriptKind.TS);
+ts.transform(sourceFile, [transformer_1["default"]]);
