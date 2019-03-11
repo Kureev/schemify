@@ -5,7 +5,11 @@ interface Props {
   someBoolean: boolean;
 }
 
-export default function SomeComponent(props: Props): JSX.Element {
+interface State {
+  justInCase: number;
+}
+
+export default function SomeComponent(props: Props, state: State): JSX.Element {
   return (
     <div
       style={{

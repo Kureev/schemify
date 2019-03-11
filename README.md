@@ -1,0 +1,1 @@
+This a WIP implementation of TypeScript -> React Native Schema compiler (see Fabric's codegen spec for more details). Most likely it's not what you're looking for. Code is dirty and doesn't really work.
