@@ -11,6 +11,7 @@ const transformer = <T extends ts.Node>(context: ts.TransformationContext) => (
     } else {
       res = ts.SyntaxKind[node.kind];
     }
+
     console.log('Visiting ' + res);
     return ts.visitEachChild(node, visit, context);
   }

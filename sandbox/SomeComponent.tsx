@@ -5,7 +5,7 @@ interface Props {
   someBoolean: boolean;
 }
 
-export default function SomeComponent(props: Props) {
+export default function SomeComponent(props: Props): JSX.Element {
   return (
     <div
       style={{
