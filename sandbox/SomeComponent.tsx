@@ -1,21 +1,14 @@
-import * as React from 'react';
-import { isPropertySignature } from 'typescript';
+import { Platform, requireNativeComponent } from 'react-native';
+import { NativeComponent } from '../NativeComponentType';
 
-interface Props {
-  someBoolean: boolean;
-}
+type Props = {
+  readonly someBoolean: boolean;
+  readonly onChange: (text: string) => void;
+};
 
-interface State {
-  justInCase: number;
-}
+const SwitchNativeComponent: NativeComponent<Props> =
+  Platform.OS === 'android'
+    ? requireNativeComponent('AndroidSwitch')
+    : requireNativeComponent('RCTSwitch');
 
-export default function SomeComponent(props: Props, state: State): JSX.Element {
-  return (
-    <div
-      style={{
-        backgroundColor: props.someBoolean ? 'green' : 'red',
-        padding: 10,
-      }}
-    />
-  );
-}
+export default SwitchNativeComponent;
