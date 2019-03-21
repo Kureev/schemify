@@ -14,6 +14,14 @@ class Component implements Schema.Component {
     }
   ) {}
 
+  public addEvent(event: Schema.Event) {
+    this.events.push(event);
+  }
+
+  public addProp(prop: Schema.Prop) {
+    this.props.push(prop);
+  }
+
   public render() {
     return {
       extendedProps: this.extendedProps,

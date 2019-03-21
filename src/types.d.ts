@@ -1,18 +1,22 @@
-type WithoutExtention<T> = { [K in keyof T]: T[K] };
-
 export declare namespace Schema {
   interface Printable<T> {
     render: () => T;
   }
 
+  type TypeProperty = {
+    type: string;
+    name: string;
+    optional: boolean;
+  };
+
   interface Event
     extends Printable<{
       name: string;
-      arguments: {
-        name: string;
+      optional: boolean;
+      bubblingType: string;
+      typeAnnotation: {
         type: string;
-        default: any;
-      }[];
+      };
     }> {}
 
   interface Prop
@@ -21,7 +25,7 @@ export declare namespace Schema {
       optional: boolean;
       typeAnnotation: {
         type: string;
-        default: any;
+        default?: any;
       };
     }> {}
 
