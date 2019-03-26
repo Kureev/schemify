@@ -1,14 +1,14 @@
-import { Schema } from './types';
+import { Schemify } from './types';
 
-class Module implements Schema.Module {
+class Module implements Schemify.Module {
   private components: {
-    [componentName: string]: Schema.Component;
+    [componentName: string]: Schemify.Component;
   } = {};
 
   /**
    * Add a component to the module
    */
-  public add(componentName: string, component: Schema.Component): void {
+  public add(componentName: string, component: Schemify.Component): void {
     this.components[componentName] = component;
   }
 

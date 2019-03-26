@@ -1,13 +1,16 @@
-import { Schema } from './types';
+import { Schemify } from './types';
 
-class Event implements Schema.Event {
+class Event implements Schemify.Event {
   constructor(
     readonly name: string,
     readonly optional: boolean,
-    readonly typeAnnotation: {
-      type: 'EventTypeAnnotation';
-    }
-  ) {}
+    readonly typeAnnotation: Schemify.EventTypeAnnotation
+  ) {
+    this.typeAnnotation = {
+      ...this.typeAnnotation,
+      type: 'EventTypeAnnotation',
+    };
+  }
 
   public render() {
     return {

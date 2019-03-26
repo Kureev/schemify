@@ -5,6 +5,13 @@ import Prop from './Prop';
 import Event from './Event';
 import Component from './Component';
 
+import { Schemify } from './types';
+
+/**
+ * First parameter is a component name, second one is a component type
+ */
+type NativeModule = [string, ts.TypeNode];
+
 export default class Transpiler {
   private program: ts.Program;
   private checker: ts.TypeChecker;
@@ -12,11 +19,6 @@ export default class Transpiler {
    * Type of the NativeComponent<T>
    */
   private LOOKUP_TYPE_NAME = 'NativeComponent';
-  /**
-   * Reference to the TypeNode that retains information about the type
-   */
-  private componentName: string = null;
-  private componentType: ts.TypeNode = null;
   /**
    * A variable statement consists of variable declaration
    * and optional type declaration. That said, we are looking for
@@ -26,7 +28,9 @@ export default class Transpiler {
    * is a type literal (or an interface) that we will use to
    * generate a React Native Schema.
    */
-  private visitDeclarationListNode(declaration: ts.VariableDeclaration): void {
+  private findComponentDeclarationWithLookupType(
+    declaration: ts.VariableDeclaration
+  ): NativeModule | null {
     if (ts.isTypeNode(declaration.type)) {
       const typeNode = <ts.TypeNode>declaration.type;
       const type: ts.Type = this.checker.getTypeFromTypeNode(typeNode);
@@ -38,18 +42,6 @@ export default class Transpiler {
        */
       if (symbol != null && symbol.getName() === this.LOOKUP_TYPE_NAME) {
         /**
-         * This tool currently doesn't support multiple module definitions
-         * in one file. In order to prevent unexpected override, throw
-         * an error to notify user about the issue.
-         *
-         * @todo Write a more exhaustive error message before the release
-         */
-        if (this.componentType != null) {
-          throw Error(
-            'We only support one Native Component declaration per file'
-          );
-        }
-        /**
          * This is a hacky way to get the first type argument.
          * In our case, we are dealing with NativeComponent<Props>
          * signature that implies a single argument with no variety.
@@ -58,27 +50,17 @@ export default class Transpiler {
          * please make sure to tell me so I can replace this bit with
          * a more elegant solution ;)
          */
-        this.componentType = <ts.TypeNode>typeNode.getChildAt(2).getChildAt(0);
+        const componentType = <ts.TypeNode>typeNode.getChildAt(2).getChildAt(0);
         /**
          * Along with the reference to component type, we need to pull
          * a component name that will be used in the schema
          */
-        this.componentName = declaration.name.getText();
-      }
-    }
-  }
+        const componentName = declaration.name.getText();
 
-  /**
-   * A helper visitor function that checks for VariableStatements and
-   * iterates over declarationList in order to find one with a sought-for type
-   */
-  private visitSourceFile(node: ts.Node): void {
-    if (ts.isVariableStatement(node)) {
-      const variableStatement: ts.VariableStatement = node;
-      variableStatement.declarationList.forEachChild(
-        (declarationNode: ts.VariableDeclaration) =>
-          this.visitDeclarationListNode(declarationNode)
-      );
+        return [componentName, componentType];
+      }
+
+      return null;
     }
   }
 
@@ -87,7 +69,7 @@ export default class Transpiler {
    * represents an event. Under the hood, it uses pattern matching
    * for the name an isFunctionTypeNode valudation for the type.
    */
-  private isEvent(propertyName: string, type: ts.Type) {
+  private isEvent(propertyName: string, type: ts.Type): boolean {
     return (
       propertyName.match(/on[A-Z]/) != null &&
       ts.isFunctionTypeNode(this.checker.typeToTypeNode(type))
@@ -97,18 +79,28 @@ export default class Transpiler {
   /**
    * Maps TypeScript types to the Schema types that RN will understand
    */
-  private getPropertyTypeAnnotation(type: ts.Type): string {
+  private getTypeAnnotation(type: ts.Type): Schemify.TypeAnnotation {
     switch (this.checker.typeToString(type)) {
       case 'boolean':
-        return 'BooleanTypeAnnotation';
+        return {
+          type: 'BooleanTypeAnnotation',
+        };
       case 'number':
-        return 'FloatTypeAnnotation';
+        return {
+          type: 'FloatTypeAnnotation',
+        };
       default:
-        if (!ts.isFunctionTypeNode(this.checker.typeToTypeNode(type))) {
-          throw Error(
-            'Unknown type encountered in a type annotation for an event'
-          );
+        if (ts.isFunctionTypeNode(this.checker.typeToTypeNode(type))) {
+          return {
+            type: 'FunctionTypeAnnotation',
+          };
         }
+        if (ts.isTypeReferenceNode(this.checker.typeToTypeNode(type))) {
+          return {
+            type: 'TypeReferenceAnnotation',
+          };
+        }
+        console.error("I don't know this type annotation");
     }
   }
 
@@ -124,24 +116,32 @@ export default class Transpiler {
   /**
    * Finds a TypeNode with a sought-for type (NativeComponent<T> by default)
    */
-  private findNativeModuleTypeNode(): [string, ts.TypeNode] {
-    if (this.componentType != null) {
-      return;
-    }
+  private findNativeModules(): NativeModule[] {
+    const nativeModules = [];
 
     for (let sourceFile of this.program.getSourceFiles()) {
       if (!sourceFile.isDeclarationFile) {
-        sourceFile.forEachChild((sourceFile: ts.SourceFile) =>
-          this.visitSourceFile(sourceFile)
-        );
+        sourceFile.forEachChild((sourceFile: ts.SourceFile) => {
+          if (ts.isVariableStatement(sourceFile)) {
+            const variableStatement: ts.VariableStatement = sourceFile;
+            variableStatement.declarationList.forEachChild(
+              (declarationNode: ts.VariableDeclaration) => {
+                const componentDeclaration = this.findComponentDeclarationWithLookupType(
+                  declarationNode
+                );
+
+                if (componentDeclaration != null) {
+                  const [componentName, componentType] = componentDeclaration;
+                  nativeModules.push([componentName, componentType]);
+                }
+              }
+            );
+          }
+        });
       }
     }
 
-    if (this.componentType == null) {
-      throw Error(`Can't find a NativeModule<T> type in the given file`);
-    }
-
-    return [this.componentName, this.componentType];
+    return nativeModules;
   }
 
   /**
@@ -149,39 +149,42 @@ export default class Transpiler {
    * Inside, it iterates over every type member and converts it to a
    * property or an event.
    */
-  public getSchema(): string {
-    const [componentName, typeNode] = this.findNativeModuleTypeNode();
+  public getSchema(): Object {
+    const modules = this.findNativeModules();
+    if (modules.length === 0) {
+      return {};
+    }
     const schema = new Schema();
     const mod = new Module();
-    const component = new Component(componentName, [], []);
 
-    const symbol = this.checker.getTypeAtLocation(typeNode).getSymbol();
-    if (symbol == null) {
-      throw Error(
-        `Something went wrong, type at (${typeNode.getStart() +
-          typeNode.getEnd()}) wasn't found`
-      );
-    }
+    // TODO: We currently don't support multiple modules inside one file
+    const [componentName, componentType] = modules[0];
+    const component = new Component(componentName, [], []);
+    const symbol = <ts.Symbol>(
+      this.checker.getTypeAtLocation(componentType).getSymbol()
+    );
 
     symbol.members.forEach((value, key) => {
-      const type = this.checker.getTypeOfSymbolAtLocation(value, typeNode);
+      const type = this.checker.getTypeOfSymbolAtLocation(value, componentType);
       const isOptional = true;
       if (this.isEvent(value.getName(), type)) {
-        const event = new Event(value.getName(), isOptional, {
-          type: 'EventTypeAnnotation',
-        });
+        const typeAnnotation = <Schemify.EventTypeAnnotation>(
+          this.getTypeAnnotation(type)
+        );
+        const event = new Event(value.getName(), isOptional, typeAnnotation);
         component.addEvent(event);
       } else {
-        const prop = new Prop(value.getName(), isOptional, {
-          type: this.getPropertyTypeAnnotation(type),
-        });
+        const typeAnnotation = <Schemify.PropTypeAnnotation>(
+          this.getTypeAnnotation(type)
+        );
+        const prop = new Prop(value.getName(), isOptional, typeAnnotation);
         component.addProp(prop);
       }
     });
 
     mod.add(componentName, component);
-    schema.add(Schema.genName(this.componentName), mod);
+    schema.add(Schema.genName(componentName), mod);
 
-    return JSON.stringify(schema.render());
+    return schema.render();
   }
 }

@@ -1,6 +1,6 @@
-import { Schema } from './types';
+import { Schemify } from './types';
 
-class Prop implements Schema.Prop {
+class Prop implements Schemify.Prop {
   constructor(
     readonly name: string,
     readonly optional: boolean,

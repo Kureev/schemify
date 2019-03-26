@@ -1,10 +1,10 @@
-import { Schema } from './types';
+import { Schemify } from './types';
 
-class Component implements Schema.Component {
+class Component implements Schemify.Component {
   constructor(
     private name: string,
-    private events: Schema.Event[],
-    private props: Schema.Prop[],
+    private events: Schemify.Event[],
+    private props: Schemify.Prop[],
     private extendedProps: {
       type: 'ReactNativeBuiltInType';
       knownTypeName: 'ReactNativeCoreViewProps';
@@ -14,11 +14,11 @@ class Component implements Schema.Component {
     }
   ) {}
 
-  public addEvent(event: Schema.Event) {
+  public addEvent(event: Schemify.Event) {
     this.events.push(event);
   }
 
-  public addProp(prop: Schema.Prop) {
+  public addProp(prop: Schemify.Prop) {
     this.props.push(prop);
   }
 

@@ -1,7 +1,7 @@
 import Module from './Module';
-import { Schema } from './types';
+import { Schemify } from './types';
 
-class Schema implements Schema.Schema {
+class Schema implements Schemify.Schema {
   /**
    * Schema has a static helper to form schema names based
    * on the component name (by adding a "Schema" suffix)

@@ -1,7 +1,28 @@
-export declare namespace Schema {
+export declare namespace Schemify {
   interface Printable<T> {
     render: () => T;
   }
+
+  type PropTypeAnnotation = {
+    type: string;
+    name?: string;
+    default?: any;
+    optional?: boolean;
+    properties?: TypeAnnotation[];
+    argument?: TypeAnnotation;
+  };
+
+  type EventTypeAnnotation = {
+    type: 'EventTypeAnnotation';
+    bubblingType: 'bubble';
+    name?: string;
+    default?: any;
+    optional?: boolean;
+    properties?: TypeAnnotation[];
+    argument?: TypeAnnotation;
+  };
+
+  type TypeAnnotation = PropTypeAnnotation | EventTypeAnnotation;
 
   type TypeProperty = {
     type: string;
@@ -14,19 +35,14 @@ export declare namespace Schema {
       name: string;
       optional: boolean;
       bubblingType: string;
-      typeAnnotation: {
-        type: string;
-      };
+      typeAnnotation: Schemify.EventTypeAnnotation;
     }> {}
 
   interface Prop
     extends Printable<{
       name: string;
       optional: boolean;
-      typeAnnotation: {
-        type: string;
-        default?: any;
-      };
+      typeAnnotation: Schemify.PropTypeAnnotation;
     }> {}
 
   interface Component
