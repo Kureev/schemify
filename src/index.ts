@@ -12,8 +12,14 @@ import { Schemify } from './types';
  */
 type NativeModule = [string, ts.TypeNode];
 
+const types = {
+  string: 'StringTypeAnnotation',
+  boolean: 'BooleanTypeAnnotation',
+  number: 'FloatTypeAnnotation',
+};
+
 export default class Transpiler {
-  private program: ts.Program;
+  private sourceFile: ts.SourceFile;
   private checker: ts.TypeChecker;
   /**
    * Type of the NativeComponent<T>
@@ -78,39 +84,89 @@ export default class Transpiler {
 
   /**
    * Maps TypeScript types to the Schema types that RN will understand
+   *
+   * There are few limitations:
+   * - Recursion A -> B -> A or A -> A isn't supported
+   * - Unions and intersections are not supported
+   *
+   * Simply put: any kind of weird shit is not supported. Be simple.
    */
   private getTypeAnnotation(type: ts.Type): Schemify.TypeAnnotation {
-    switch (this.checker.typeToString(type)) {
-      case 'boolean':
-        return {
-          type: 'BooleanTypeAnnotation',
-        };
-      case 'number':
-        return {
-          type: 'FloatTypeAnnotation',
-        };
-      default:
-        if (ts.isFunctionTypeNode(this.checker.typeToTypeNode(type))) {
-          return {
-            type: 'FunctionTypeAnnotation',
-          };
-        }
-        if (ts.isTypeReferenceNode(this.checker.typeToTypeNode(type))) {
-          return {
-            type: 'TypeReferenceAnnotation',
-          };
-        }
-        console.error("I don't know this type annotation");
+    const symbol = type.getSymbol();
+    /**
+     * If type is one of the JS primitives (string, boolean, number),
+     * return a "standard" object with a single "type" field taken
+     * from the mapping dictionary
+     */
+    if (types[this.checker.typeToString(type)]) {
+      return {
+        type: types[this.checker.typeToString(type)],
+      };
     }
+
+    const typeNode: ts.TypeNode = this.checker.typeToTypeNode(type);
+    if (ts.isFunctionTypeNode(typeNode)) {
+      return {
+        type: 'FunctionTypeAnnotation',
+      };
+    }
+    /**
+     * If it's a type reference, things getting more complicated.
+     * Currently, we recursively unwrap type annotations and for an
+     * object that contains nested types.
+     *
+     * However, I didn't implement recursion handling (yet).
+     * Basically, if A has B where B has A, it'll lead to infinite
+     * loop and therefore, maximum call stack size exception.
+     * Probably, the best way to handle it would be to improve type
+     * definition of Schemify.PropTypeAnnotation and make "properties"
+     * lazy using typescript getters.
+     *
+     * Unless then, recursive properties are not supported.
+     */
+    if (ts.isTypeReferenceNode(typeNode)) {
+      const properties: Schemify.PropTypeAnnotation[] = [];
+      this.checker.getPropertiesOfType(type).forEach(property => {
+        const type = this.checker.getTypeOfSymbolAtLocation(
+          property,
+          property.valueDeclaration
+        );
+        const annotation = this.getTypeAnnotation(type);
+        const prop: Schemify.PropTypeAnnotation = {
+          name: property.getName(),
+          type: annotation.type,
+          optional: true,
+        };
+        if (annotation.properties != null) {
+          prop.properties = annotation.properties;
+        }
+        properties.push(prop);
+      });
+
+      return {
+        type: 'ObjectTypeAnnotation',
+        name: this.checker.typeToString(type),
+        optional: true,
+        properties,
+      };
+    }
+
+    /**
+     * If you're looking for a good place to add handling for
+     * union or intersection types, this is it.
+     */
+
+    console.error("This type annotation isn't supported yet");
   }
 
-  constructor(filename: string) {
-    this.program = ts.createProgram([filename], {
+  constructor(readonly filename: string) {
+    const program = ts.createProgram([filename], {
       noEmitOnError: true,
       noImplicitAny: true,
       target: ts.ScriptTarget.ES5,
     });
-    this.checker = this.program.getTypeChecker();
+    this.sourceFile = program.getSourceFile(filename);
+    this.checker = program.getTypeChecker();
   }
 
   /**
@@ -119,27 +175,28 @@ export default class Transpiler {
   private findNativeModules(): NativeModule[] {
     const nativeModules = [];
 
-    for (let sourceFile of this.program.getSourceFiles()) {
-      if (!sourceFile.isDeclarationFile) {
-        sourceFile.forEachChild((sourceFile: ts.SourceFile) => {
-          if (ts.isVariableStatement(sourceFile)) {
-            const variableStatement: ts.VariableStatement = sourceFile;
-            variableStatement.declarationList.forEachChild(
-              (declarationNode: ts.VariableDeclaration) => {
-                const componentDeclaration = this.findComponentDeclarationWithLookupType(
-                  declarationNode
-                );
-
-                if (componentDeclaration != null) {
-                  const [componentName, componentType] = componentDeclaration;
-                  nativeModules.push([componentName, componentType]);
-                }
-              }
+    /**
+     * We are looking for variable statements with a lookup type.
+     * Once found, add them to the nativeModules array so we can
+     * iterate over them later (and generate corresponding schema)
+     */
+    this.sourceFile.forEachChild((node: ts.Node) => {
+      if (ts.isVariableStatement(node)) {
+        const variableStatement: ts.VariableStatement = node;
+        variableStatement.declarationList.forEachChild(
+          (declarationNode: ts.VariableDeclaration) => {
+            const componentDeclaration = this.findComponentDeclarationWithLookupType(
+              declarationNode
             );
+
+            if (componentDeclaration != null) {
+              const [componentName, componentType] = componentDeclaration;
+              nativeModules.push([componentName, componentType]);
+            }
           }
-        });
+        );
       }
-    }
+    });
 
     return nativeModules;
   }
@@ -157,7 +214,9 @@ export default class Transpiler {
     const schema = new Schema();
     const mod = new Module();
 
-    // TODO: We currently don't support multiple modules inside one file
+    /**
+     * We currently don't support multiple modules inside one file
+     */
     const [componentName, componentType] = modules[0];
     const component = new Component(componentName, [], []);
     const symbol = <ts.Symbol>(
@@ -168,12 +227,18 @@ export default class Transpiler {
       const type = this.checker.getTypeOfSymbolAtLocation(value, componentType);
       const isOptional = true;
       if (this.isEvent(value.getName(), type)) {
+        /**
+         * Handling Events
+         */
         const typeAnnotation = <Schemify.EventTypeAnnotation>(
           this.getTypeAnnotation(type)
         );
         const event = new Event(value.getName(), isOptional, typeAnnotation);
         component.addEvent(event);
       } else {
+        /**
+         * Handling Props
+         */
         const typeAnnotation = <Schemify.PropTypeAnnotation>(
           this.getTypeAnnotation(type)
         );

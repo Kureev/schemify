@@ -1,22 +1,22 @@
 import { Platform, requireNativeComponent } from 'react-native';
 import { NativeComponent } from '../NativeComponentType';
 
-type Baz = {
-  meaningOfLife: 42;
+type CityName = string;
+
+type Location = {
+  name: CityName;
 };
 
-type Bar = {
-  bar: Baz;
-};
-
-type Foo = {
-  foo: Bar;
+type Coord = {
+  x: number;
+  y: number;
+  location: Location;
 };
 
 type Props = {
   readonly someBoolean: boolean;
   readonly onChange: (text: string) => void;
-  readonly complexType: Foo;
+  readonly coord: Coord;
 };
 
 const SwitchNativeComponent: NativeComponent<Props> =
