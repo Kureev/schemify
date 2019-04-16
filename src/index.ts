@@ -106,8 +106,30 @@ export default class Transpiler {
 
     const typeNode: ts.TypeNode = this.checker.typeToTypeNode(type);
     if (ts.isFunctionTypeNode(typeNode)) {
+      let argument: Schemify.PropTypeAnnotation;
+      this.checker
+        .getSignaturesOfType(type, ts.SignatureKind.Call)
+        /**
+         * At this moment, react-native doesn't support more than one argument
+         * (Event) passed back from the native side, however the implementation
+         * I wrote was designed to support multiple parameters (just in case).
+         *
+         * That said, I assume the "getParameters" to always return an array
+         * of one element (unless the schema in react-native is changed).
+         * Otherwise, the latter one will override the first one
+         */
+        .forEach(signature => {
+          signature.getParameters().forEach(parameter => {
+            const type = this.checker.getTypeOfSymbolAtLocation(
+              parameter,
+              parameter.valueDeclaration
+            );
+            argument = this.getTypeAnnotation(type);
+          });
+        });
       return {
         type: 'FunctionTypeAnnotation',
+        argument,
       };
     }
     /**
@@ -156,7 +178,7 @@ export default class Transpiler {
      * union or intersection types, this is it.
      */
 
-    console.error("This type annotation isn't supported yet");
+    console.error("This type  annotation isn't supported yet");
   }
 
   constructor(readonly filename: string) {

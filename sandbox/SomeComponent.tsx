@@ -3,6 +3,10 @@ import { NativeComponent } from '../NativeComponentType';
 
 type CityName = string;
 
+type Event = {
+  someEventParameter: boolean;
+};
+
 type Location = {
   name: CityName;
 };
@@ -15,7 +19,7 @@ type Coord = {
 
 type Props = {
   readonly someBoolean: boolean;
-  readonly onChange: (text: string) => void;
+  readonly onChange: (event: Event) => void;
   readonly coord: Coord;
 };
 
