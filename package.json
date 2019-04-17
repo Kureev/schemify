@@ -4,13 +4,8 @@
   "description": "A CLI tool to convert React Native components (that uses TypeScript) into a new Fabric schema",
   "main": "index.js",
   "dependencies": {
-    "@types/node": "^11.11.0",
-    "@types/react": "^16.8.7",
-    "react": "^16.8.4",
-    "react-native": "^0.58.6",
     "typescript": "^3.3.3333"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "tsc index.ts && node index.js"
@@ -20,5 +15,12 @@
     "native"
   ],
   "author": "Alexey Kureev <a.g.kureev@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^24.7.1",
+    "react": "^16.8.6",
+    "react-native": "^0.59.4",
+    "@types/node": "^11.11.0",
+    "@types/react": "^16.8.7"
+  }
 }
