@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import visitors from './visitors';
+import visitors from './src/visitors';
 
 const transformer = <T extends ts.Node>(context: ts.TransformationContext) => (
   rootNode: T

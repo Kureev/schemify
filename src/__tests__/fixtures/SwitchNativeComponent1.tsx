@@ -1,5 +1,5 @@
 import { Platform, requireNativeComponent } from 'react-native';
-import { NativeComponent } from '../NativeComponentType';
+import { NativeComponent } from '../../../NativeComponentType';
 
 type CityName = string;
 
@@ -23,9 +23,9 @@ type Props = {
   readonly coord: Coord;
 };
 
-const SwitchNativeComponent: NativeComponent<Props> =
+const SwitchNativeComponent1: NativeComponent<Props> =
   Platform.OS === 'android'
     ? requireNativeComponent('AndroidSwitch')
     : requireNativeComponent('RCTSwitch');
 
-export default SwitchNativeComponent;
+export default SwitchNativeComponent1;
