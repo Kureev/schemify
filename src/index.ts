@@ -19,6 +19,7 @@ const types = {
 };
 
 export default class Transpiler {
+  private program: ts.Program;
   private sourceFile: ts.SourceFile;
   private checker: ts.TypeChecker;
   /**
@@ -181,65 +182,58 @@ export default class Transpiler {
     console.error("This type  annotation isn't supported yet");
   }
 
-  constructor(readonly filename: string) {
-    const program = ts.createProgram([filename], {
+  constructor(readonly filenames: Array<string>) {
+    this.program = ts.createProgram(filenames, {
       noEmitOnError: true,
       noImplicitAny: true,
       target: ts.ScriptTarget.ES5,
     });
-    this.sourceFile = program.getSourceFile(filename);
-    this.checker = program.getTypeChecker();
   }
 
   /**
-   * Finds a TypeNode with a sought-for type (NativeComponent<T> by default)
+   * Finds a TypeNode with a search-for type (NativeComponent<T> by default)
    */
   private findNativeModules(): NativeModule[] {
     const nativeModules = [];
 
-    /**
-     * We are looking for variable statements with a lookup type.
-     * Once found, add them to the nativeModules array so we can
-     * iterate over them later (and generate corresponding schema)
-     */
-    this.sourceFile.forEachChild((node: ts.Node) => {
-      if (ts.isVariableStatement(node)) {
-        const variableStatement: ts.VariableStatement = node;
-        variableStatement.declarationList.forEachChild(
-          (declarationNode: ts.VariableDeclaration) => {
-            const componentDeclaration = this.findComponentDeclarationWithLookupType(
-              declarationNode
-            );
+    const filenames = this.program.getRootFileNames();
 
-            if (componentDeclaration != null) {
-              const [componentName, componentType] = componentDeclaration;
-              nativeModules.push([componentName, componentType]);
+    filenames.forEach(filename => {
+      this.sourceFile = this.program.getSourceFile(filename);
+      this.checker = this.program.getTypeChecker();
+
+      /**
+       * We are looking for variable statements with a lookup type.
+       * Once found, add them to the nativeModules array so we can
+       * iterate over them later (and generate corresponding schema)
+       */
+      this.sourceFile.forEachChild((node: ts.Node) => {
+        if (ts.isVariableStatement(node)) {
+          const variableStatement: ts.VariableStatement = node;
+          variableStatement.declarationList.forEachChild(
+            (declarationNode: ts.VariableDeclaration) => {
+              const componentDeclaration = this.findComponentDeclarationWithLookupType(
+                declarationNode
+              );
+
+              if (componentDeclaration != null) {
+                const [componentName, componentType] = componentDeclaration;
+                nativeModules.push([componentName, componentType]);
+              }
             }
-          }
-        );
-      }
+          );
+        }
+      });
     });
 
     return nativeModules;
   }
 
-  /**
-   * Takes a TypeNode as an argument and returns a Schema instance.
-   * Inside, it iterates over every type member and converts it to a
-   * property or an event.
-   */
-  public getSchema(): Object {
-    const modules = this.findNativeModules();
-    if (modules.length === 0) {
-      return {};
-    }
-    const schema = new Schema();
-    const mod = new Module();
-
+  private getComponent(nativeModule: NativeModule): Component {
     /**
      * We currently don't support multiple modules inside one file
      */
-    const [componentName, componentType] = modules[0];
+    const [componentName, componentType] = nativeModule;
     const component = new Component(componentName, [], []);
     const symbol = <ts.Symbol>(
       this.checker.getTypeAtLocation(componentType).getSymbol()
@@ -269,8 +263,28 @@ export default class Transpiler {
       }
     });
 
-    mod.add(componentName, component);
-    schema.add(Schema.genName(componentName), mod);
+    return component;
+  }
+
+  /**
+   * Takes a TypeNode as an argument and returns a Schema instance.
+   * Inside, it iterates over every type member and converts it to a
+   * property or an event.
+   */
+  public getSchema(): Object {
+    const nativeModules: NativeModule[] = this.findNativeModules();
+    if (nativeModules.length === 0) {
+      return {};
+    }
+    const schema = new Schema();
+
+    nativeModules.map((nativeModule: NativeModule) => {
+      const component: Component = this.getComponent(nativeModule);
+      const mod = new Module();
+      const componentName = nativeModule[0];
+      mod.add(componentName, component);
+      schema.add(componentName, mod);
+    });
 
     return schema.render();
   }

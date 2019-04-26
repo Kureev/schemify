@@ -1,6 +1,6 @@
 import Transpiler from './src';
 
-const FILE_NAME: string = './sandbox/SomeComponent.tsx';
-const output = new Transpiler(FILE_NAME).getSchema();
+const filenames: Array<string> = process.argv.slice(2, process.argv.length);
+const schema = new Transpiler(filenames).getSchema();
 
-console.log(JSON.stringify(output));
+console.log(JSON.stringify(schema));

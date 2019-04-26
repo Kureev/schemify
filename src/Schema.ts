@@ -2,14 +2,6 @@ import Module from './Module';
 import { Schemify } from './types';
 
 class Schema implements Schemify.Schema {
-  /**
-   * Schema has a static helper to form schema names based
-   * on the component name (by adding a "Schema" suffix)
-   */
-  static genName(componentName: string): string {
-    return componentName + 'Schema';
-  }
-
   private modules = {};
 
   /**
