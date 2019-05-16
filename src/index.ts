@@ -93,7 +93,6 @@ export default class Transpiler {
    * Simply put: any kind of weird shit is not supported. Be simple.
    */
   private getTypeAnnotation(type: ts.Type): Schemify.TypeAnnotation {
-    const symbol = type.getSymbol();
     /**
      * If type is one of the JS primitives (string, boolean, number),
      * return a "standard" object with a single "type" field taken
@@ -138,7 +137,7 @@ export default class Transpiler {
      * Currently, we recursively unwrap type annotations and for an
      * object that contains nested types.
      *
-     * However, I didn't implement recursion handling (yet).
+     * However, I didn't implement circle references yet.
      * Basically, if A has B where B has A, it'll lead to infinite
      * loop and therefore, maximum call stack size exception.
      * Probably, the best way to handle it would be to improve type
@@ -154,11 +153,19 @@ export default class Transpiler {
           property,
           property.valueDeclaration
         );
+
+        const parameterDeclaration = <ts.ParameterDeclaration>(
+          property.valueDeclaration
+        );
+        const isOptional = this.checker.isOptionalParameter(
+          parameterDeclaration
+        );
+
         const annotation = this.getTypeAnnotation(type);
         const prop: Schemify.PropTypeAnnotation = {
           name: property.getName(),
           type: annotation.type,
-          optional: true,
+          optional: isOptional,
         };
         if (annotation.properties != null) {
           prop.properties = annotation.properties;
@@ -169,7 +176,6 @@ export default class Transpiler {
       return {
         type: 'ObjectTypeAnnotation',
         name: this.checker.typeToString(type),
-        optional: true,
         properties,
       };
     }
@@ -241,7 +247,10 @@ export default class Transpiler {
 
     symbol.members.forEach((value, key) => {
       const type = this.checker.getTypeOfSymbolAtLocation(value, componentType);
-      const isOptional = true;
+      const parameterDeclaration = <ts.ParameterDeclaration>(
+        value.valueDeclaration
+      );
+      const isOptional = this.checker.isOptionalParameter(parameterDeclaration);
       if (this.isEvent(value.getName(), type)) {
         /**
          * Handling Events

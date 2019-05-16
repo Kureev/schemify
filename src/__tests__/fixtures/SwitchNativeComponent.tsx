@@ -4,7 +4,7 @@ import { NativeComponent } from '../../../NativeComponentType';
 type CityName = string;
 
 type Event = {
-  someEventParameter: boolean;
+  someEventParameter?: boolean;
 };
 
 type Location = {
@@ -14,13 +14,13 @@ type Location = {
 type Coord = {
   x: number;
   y: number;
-  location: Location;
+  location?: Location;
 };
 
 type Props = {
-  readonly someBoolean: boolean;
-  readonly onChange: (event: Event) => void;
-  readonly coord: Coord;
+  someBoolean?: boolean;
+  onChange: (event: Event) => void;
+  coord: Coord;
 };
 
 const SwitchNativeComponent: NativeComponent<Props> =
