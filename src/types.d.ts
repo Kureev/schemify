@@ -47,10 +47,10 @@ export declare namespace Schemify {
 
   interface Component
     extends Printable<{
-      extendedProps: {
+      extendsProps: Array<{
         type: 'ReactNativeBuiltInType';
         knownTypeName: 'ReactNativeCoreViewProps';
-      };
+      }>;
       name: string;
       events: Event[];
       props: Prop[];

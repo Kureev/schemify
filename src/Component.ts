@@ -5,13 +5,15 @@ class Component implements Schemify.Component {
     private name: string,
     private events: Schemify.Event[],
     private props: Schemify.Prop[],
-    private extendedProps: {
+    private extendsProps: Array<{
       type: 'ReactNativeBuiltInType';
       knownTypeName: 'ReactNativeCoreViewProps';
-    } = {
-      type: 'ReactNativeBuiltInType',
-      knownTypeName: 'ReactNativeCoreViewProps',
-    }
+    }> = [
+      {
+        type: 'ReactNativeBuiltInType',
+        knownTypeName: 'ReactNativeCoreViewProps',
+      },
+    ]
   ) {}
 
   public addEvent(event: Schemify.Event) {
@@ -24,7 +26,7 @@ class Component implements Schemify.Component {
 
   public render() {
     return {
-      extendedProps: this.extendedProps,
+      extendsProps: this.extendsProps,
       name: this.name,
       events: this.events,
       props: this.props,
