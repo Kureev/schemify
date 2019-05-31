@@ -10,7 +10,7 @@ import { Schemify } from './types';
 /**
  * First parameter is a component name, second one is a component type
  */
-type NativeModule = [string, ts.TypeNode];
+type NativeModule = [string, ts.TypeNode, ts.TypeNode];
 
 const types = {
   string: 'StringTypeAnnotation',
@@ -23,48 +23,33 @@ export default class Transpiler {
   private sourceFile: ts.SourceFile;
   private checker: ts.TypeChecker;
   /**
-   * Type of the NativeComponent<T>
+   * Type of the CodegenNativeComponent<ComponentName, Props, Options = {}>
    */
-  private LOOKUP_TYPE_NAME = 'NativeComponent';
+  private LOOKUP_TYPE_NAME = 'CodegenNativeComponent';
   /**
    * A variable statement consists of variable declaration
    * and optional type declaration. That said, we are looking for
    * a type declaration (TypeNode) so we can derive information
    * about the type or interface that user passed to NativeModule
-   * generic. For example, NativeModule<Props> where Props
-   * is a type literal (or an interface) that we will use to
-   * generate a React Native Schema.
+   * generic.
    */
   private findComponentDeclarationWithLookupType(
     declaration: ts.VariableDeclaration
   ): NativeModule | null {
     if (ts.isTypeNode(declaration.type)) {
-      const typeNode = <ts.TypeNode>declaration.type;
-      const type: ts.Type = this.checker.getTypeFromTypeNode(typeNode);
-      const symbol: ts.Symbol = type.getSymbol();
+      const typeNode: ts.TypeNode = declaration.type;
+      const typeName = typeNode.getFirstToken().getText();
 
-      /**
-       * Sometimes, symbols might not exist. This will happen in a case
-       * when user specifies a generic that doesn't exist.
-       */
-      if (symbol != null && symbol.getName() === this.LOOKUP_TYPE_NAME) {
-        /**
-         * This is a hacky way to get the first type argument.
-         * In our case, we are dealing with NativeComponent<Props>
-         * signature that implies a single argument with no variety.
-         *
-         * If you know a better way to get type parameters (generics),
-         * please make sure to tell me so I can replace this bit with
-         * a more elegant solution ;)
-         */
-        const componentType = <ts.TypeNode>typeNode.getChildAt(2).getChildAt(0);
-        /**
-         * Along with the reference to component type, we need to pull
-         * a component name that will be used in the schema
-         */
-        const componentName = declaration.name.getText();
+      if (typeName === this.LOOKUP_TYPE_NAME) {
+        const genericParams = typeNode.getChildAt(2);
+        const componentName = genericParams.getChildAt(0).getText();
+        const componentProps = <ts.TypeNode>genericParams.getChildAt(2);
+        const codegenOptions = <ts.TypeNode>genericParams.getChildAt(4);
 
-        return [componentName, componentType];
+        console.log(codegenOptions);
+
+        // return;
+        return [componentName, componentProps, codegenOptions];
       }
 
       return null;
@@ -197,17 +182,15 @@ export default class Transpiler {
   }
 
   /**
-   * Finds a TypeNode with a search-for type (NativeComponent<T> by default)
+   * Searches for a TypeNode with a search-for type
+   * CodegenNativeComponent<ComponentName, Props, Options = {}>
    */
   private findNativeModules(): NativeModule[] {
     const nativeModules = [];
 
-    const filenames = this.program.getRootFileNames();
-
-    filenames.forEach(filename => {
+    this.program.getRootFileNames().forEach(filename => {
       this.sourceFile = this.program.getSourceFile(filename);
       this.checker = this.program.getTypeChecker();
-
       /**
        * We are looking for variable statements with a lookup type.
        * Once found, add them to the nativeModules array so we can
@@ -239,14 +222,17 @@ export default class Transpiler {
     /**
      * We currently don't support multiple modules inside one file
      */
-    const [componentName, componentType] = nativeModule;
+    const [componentName, componentProps] = nativeModule;
     const component = new Component(componentName, [], []);
     const symbol = <ts.Symbol>(
-      this.checker.getTypeAtLocation(componentType).getSymbol()
+      this.checker.getTypeAtLocation(componentProps).getSymbol()
     );
 
     symbol.members.forEach((value, key) => {
-      const type = this.checker.getTypeOfSymbolAtLocation(value, componentType);
+      const type = this.checker.getTypeOfSymbolAtLocation(
+        value,
+        componentProps
+      );
       const parameterDeclaration = <ts.ParameterDeclaration>(
         value.valueDeclaration
       );

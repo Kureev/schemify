@@ -1,5 +1,5 @@
 import { Platform, requireNativeComponent } from 'react-native';
-import { NativeComponent } from '../../../NativeComponentType';
+import { CodegenNativeComponent, WithDefault } from '../../CodegenTypes';
 
 type CityName = string;
 
@@ -14,7 +14,7 @@ type Location = {
 type Coord = {
   x: number;
   y: number;
-  location?: Location;
+  location?: WithDefault<Location, { name: 'London' }>;
 };
 
 type Props = {
@@ -23,7 +23,7 @@ type Props = {
   coord: Coord;
 };
 
-const SwitchNativeComponent: NativeComponent<Props> =
+const SwitchNativeComponent: CodegenNativeComponent<'Switch', Props> =
   Platform.OS === 'android'
     ? requireNativeComponent('AndroidSwitch')
     : requireNativeComponent('RCTSwitch');
