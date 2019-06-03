@@ -6,16 +6,23 @@ import Event from './Event';
 import Component from './Component';
 
 import { Schemify } from './types';
+import { BubblingType } from './CodegenTypes';
+import { symbol } from 'prop-types';
 
 /**
  * First parameter is a component name, second one is a component type
  */
 type NativeModule = [string, ts.TypeNode, ts.TypeNode];
 
+const whitelistedTypes = {
+  BubblingEvent: 'BubblingEvent',
+};
+
 const types = {
   string: 'StringTypeAnnotation',
   boolean: 'BooleanTypeAnnotation',
-  number: 'FloatTypeAnnotation',
+  Int32: 'Int32TypeAnnotation',
+  Float: 'FloatTypeAnnotation',
 };
 
 export default class Transpiler {
@@ -37,7 +44,7 @@ export default class Transpiler {
     declaration: ts.VariableDeclaration
   ): NativeModule | null {
     if (ts.isTypeNode(declaration.type)) {
-      const typeNode: ts.TypeNode = declaration.type;
+      const typeNode = declaration.type;
       const typeName = typeNode.getFirstToken().getText();
 
       if (typeName === this.LOOKUP_TYPE_NAME) {
@@ -46,14 +53,18 @@ export default class Transpiler {
         const componentProps = <ts.TypeNode>genericParams.getChildAt(2);
         const codegenOptions = <ts.TypeNode>genericParams.getChildAt(4);
 
-        console.log(codegenOptions);
-
         // return;
         return [componentName, componentProps, codegenOptions];
       }
 
       return null;
     }
+  }
+
+  private getBubblingType(type: ts.Type): BubblingType {
+    return type.getSymbol().getName() === 'BubblingEvent'
+      ? BubblingType.Bubble
+      : BubblingType.Direct;
   }
 
   /**
@@ -79,9 +90,18 @@ export default class Transpiler {
    */
   private getTypeAnnotation(type: ts.Type): Schemify.TypeAnnotation {
     /**
-     * If type is one of the JS primitives (string, boolean, number),
+     * Schemify doesn't support "number" type due to ambiguity
+     * it brings on the native platforms.
+     */
+    if (this.checker.typeToString(type) === 'number') {
+      throw Error(
+        'Type "number" isn\'t supported. Please, use Int32 or Float instead'
+      );
+    }
+    /**
+     * If type is one of the following primitives (string, boolean, int32, float),
      * return a "standard" object with a single "type" field taken
-     * from the mapping dictionary
+     * from the mapping dictionary.
      */
     if (types[this.checker.typeToString(type)]) {
       return {
@@ -89,9 +109,14 @@ export default class Transpiler {
       };
     }
 
+    /**
+     * FOR TYPE CHECKS ONLY!
+     * WARNING: "typeToTypeNode" loses type context, use with caution!
+     */
     const typeNode: ts.TypeNode = this.checker.typeToTypeNode(type);
+
     if (ts.isFunctionTypeNode(typeNode)) {
-      let argument: Schemify.PropTypeAnnotation;
+      let argument: Schemify.TypeAnnotation;
       this.checker
         .getSignaturesOfType(type, ts.SignatureKind.Call)
         /**
@@ -105,10 +130,20 @@ export default class Transpiler {
          */
         .forEach(signature => {
           signature.getParameters().forEach(parameter => {
-            const type = this.checker.getTypeOfSymbolAtLocation(
+            const paramType = this.checker.getTypeOfSymbolAtLocation(
               parameter,
-              parameter.valueDeclaration
+              this.sourceFile
             );
+
+            let type: ts.Type;
+            (<any>paramType).typeArguments.forEach(typeArgument => {
+              typeArgument.getSymbol().members.forEach(member => {
+                type = this.checker.getTypeOfSymbolAtLocation(
+                  member,
+                  member.valueDeclaration
+                );
+              });
+            });
             argument = this.getTypeAnnotation(type);
           });
         });
@@ -133,6 +168,11 @@ export default class Transpiler {
      */
     if (ts.isTypeReferenceNode(typeNode)) {
       const properties: Schemify.PropTypeAnnotation[] = [];
+
+      if (whitelistedTypes[type.getSymbol().getName()] != null) {
+        console.log(typeNode.getChildren());
+      }
+
       this.checker.getPropertiesOfType(type).forEach(property => {
         const type = this.checker.getTypeOfSymbolAtLocation(
           property,
@@ -146,7 +186,9 @@ export default class Transpiler {
           parameterDeclaration
         );
 
-        const annotation = this.getTypeAnnotation(type);
+        const annotation = <Schemify.PropTypeAnnotation>(
+          this.getTypeAnnotation(type)
+        );
         const prop: Schemify.PropTypeAnnotation = {
           name: property.getName(),
           type: annotation.type,
@@ -206,8 +248,8 @@ export default class Transpiler {
               );
 
               if (componentDeclaration != null) {
-                const [componentName, componentType] = componentDeclaration;
-                nativeModules.push([componentName, componentType]);
+                const [componentName, componentProps] = componentDeclaration;
+                nativeModules.push([componentName, componentProps]);
               }
             }
           );
@@ -228,7 +270,7 @@ export default class Transpiler {
       this.checker.getTypeAtLocation(componentProps).getSymbol()
     );
 
-    symbol.members.forEach((value, key) => {
+    symbol.members.forEach(value => {
       const type = this.checker.getTypeOfSymbolAtLocation(
         value,
         componentProps
@@ -244,8 +286,14 @@ export default class Transpiler {
         const typeAnnotation = <Schemify.EventTypeAnnotation>(
           this.getTypeAnnotation(type)
         );
-        const event = new Event(value.getName(), isOptional, typeAnnotation);
-        component.addEvent(event);
+        component.addEvent(
+          new Event(
+            value.getName(),
+            isOptional,
+            this.getBubblingType(type),
+            typeAnnotation
+          )
+        );
       } else {
         /**
          * Handling Props

@@ -1,5 +1,10 @@
 import { Platform, requireNativeComponent } from 'react-native';
-import { CodegenNativeComponent, WithDefault } from '../../CodegenTypes';
+import { Float } from '../../CodegenTypes';
+import {
+  CodegenNativeComponent,
+  WithDefault,
+  BubblingEvent
+} from '../../CodegenTypes';
 
 type CityName = string;
 
@@ -12,14 +17,14 @@ type Location = {
 };
 
 type Coord = {
-  x: number;
-  y: number;
+  x: Float;
+  y: Float;
   location?: WithDefault<Location, { name: 'London' }>;
 };
 
 type Props = {
   someBoolean?: boolean;
-  onChange: (event: Event) => void;
+  onChange: (event: BubblingEvent<Event>) => void;
   coord: Coord;
 };
 
