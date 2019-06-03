@@ -6,14 +6,15 @@
 
 import { SyntheticEvent } from './CoreEventTypes';
 import { NativeComponent } from './NativeComponentType';
+import { Schemify } from './types';
 
 // Event types
-export type BubblingEvent<T> = SyntheticEvent<T>;
-export type DirectEvent<T> = SyntheticEvent<T>;
+export interface BubblingEvent<T> extends SyntheticEvent<T> { };
+export interface DirectEvent<T> extends SyntheticEvent<T> { };
 
 // Prop types
-export type Float = number;
-export type Int32 = number;
+export interface Float extends Number { };
+export interface Int32 extends Number { };
 
 /**
  * WithDefault is supposed to be used for optional values.
@@ -28,7 +29,12 @@ export type WithDefault<T, V extends T /* used by codegen */> = T;
 //
 // eslint-disable-next-line no-unused-vars
 export type CodegenNativeComponent<
-  ComponentName /* used by codegen */,
-  Props,
-  Options = {} /* used by codegen */
-> = NativeComponent<Props>;
+  ComponentName extends string /* used by codegen */,
+  Props extends { [key: string]: any },
+  Options extends Schemify.CodegenOptions = {} /* used by codegen */
+  > = NativeComponent<Props>;
+
+export enum BubblingType {
+  Direct = 'direct',
+  Bubble = 'bubble',
+};

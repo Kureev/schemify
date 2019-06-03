@@ -1,9 +1,11 @@
 import { Schemify } from './types';
+import { BubblingType } from './CodegenTypes';
 
 class Event implements Schemify.Event {
   constructor(
     readonly name: string,
     readonly optional: boolean,
+    readonly bubblingType: BubblingType,
     readonly typeAnnotation: Schemify.EventTypeAnnotation
   ) {
     this.typeAnnotation = {
@@ -16,7 +18,7 @@ class Event implements Schemify.Event {
     return {
       name: this.name,
       optional: this.optional,
-      bubblingType: 'bubble',
+      bubblingType: this.bubblingType,
       typeAnnotation: this.typeAnnotation,
     };
   }
