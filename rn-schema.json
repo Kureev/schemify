@@ -1,0 +1,72 @@
+{
+  "modules": {
+    "'Switch'": {
+      "components": {
+        "'Switch'": {
+          "name": "'Switch'",
+          "events": [
+            {
+              "name": "onChange",
+              "optional": false,
+              "bubblingType": "direct",
+              "typeAnnotation": {
+                "type": "EventTypeAnnotation",
+                "argument": {
+                  "type": "BooleanTypeAnnotation",
+                  "name": "someEventParameter"
+                }
+              }
+            }
+          ],
+          "props": [
+            {
+              "name": "someBoolean",
+              "optional": true,
+              "typeAnnotation": {
+                "type": "BooleanTypeAnnotation"
+              }
+            },
+            {
+              "name": "coord",
+              "optional": false,
+              "typeAnnotation": {
+                "type": "ObjectTypeAnnotation",
+                "name": "Coord",
+                "properties": [
+                  {
+                    "name": "x",
+                    "type": "FloatTypeAnnotation",
+                    "optional": false
+                  },
+                  {
+                    "name": "y",
+                    "type": "FloatTypeAnnotation",
+                    "optional": false
+                  },
+                  {
+                    "name": "location",
+                    "type": "ObjectTypeAnnotation",
+                    "optional": true,
+                    "properties": [
+                      {
+                        "name": "name",
+                        "type": "StringTypeAnnotation",
+                        "optional": false
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "extendsProps": [
+            {
+              "type": "ReactNativeBuiltInType",
+              "knownTypeName": "ReactNativeCoreViewProps"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

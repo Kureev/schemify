@@ -136,15 +136,17 @@ export default class Transpiler {
             );
 
             let type: ts.Type;
-            (<any>paramType).typeArguments.forEach(typeArgument => {
-              typeArgument.getSymbol().members.forEach(member => {
+            let name: string;
+            (<any>paramType).typeArguments.forEach((typeArgument: ts.Type) => {
+              typeArgument.getSymbol().members.forEach((member: ts.Symbol) => {
                 type = this.checker.getTypeOfSymbolAtLocation(
                   member,
                   member.valueDeclaration
                 );
+                name = member.getName();
               });
             });
-            argument = this.getTypeAnnotation(type);
+            argument = { ...this.getTypeAnnotation(type), name };
           });
         });
       return {
@@ -168,11 +170,6 @@ export default class Transpiler {
      */
     if (ts.isTypeReferenceNode(typeNode)) {
       const properties: Schemify.PropTypeAnnotation[] = [];
-
-      if (whitelistedTypes[type.getSymbol().getName()] != null) {
-        console.log(typeNode.getChildren());
-      }
-
       this.checker.getPropertiesOfType(type).forEach(property => {
         const type = this.checker.getTypeOfSymbolAtLocation(
           property,
