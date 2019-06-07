@@ -135,18 +135,9 @@ export default class Transpiler {
               this.sourceFile
             );
 
-            let type: ts.Type;
-            let name: string;
             (<any>paramType).typeArguments.forEach((typeArgument: ts.Type) => {
-              typeArgument.getSymbol().members.forEach((member: ts.Symbol) => {
-                type = this.checker.getTypeOfSymbolAtLocation(
-                  member,
-                  member.valueDeclaration
-                );
-                name = member.getName();
-              });
+              argument = this.getTypeAnnotation(typeArgument);
             });
-            argument = { ...this.getTypeAnnotation(type), name };
           });
         });
       return {
